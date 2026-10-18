@@ -74,6 +74,8 @@ __param_spec__ = {
             "latitude_deg": "site geometry: latitude used when no column latitude is passed",
             "lake_area_m2": "site geometry: surface area in the Lake Number",
             "wind_power_ref_W_m2": "site climatology: mean training wind power (fit statistic)",
+            "penetrative_convection_coef": "enters only a boolean selection of the convective "
+                                           "layer; gradient zero by construction",
         },
         "params": {
             "albedo_lake": {
@@ -186,13 +188,6 @@ __param_spec__ = {
                 "units": "1", "bounds": (1.0e-3, 100.0), "tunable_tier": 2,
                 "transform": "sigmoid", "category": "closure",
                 "reference": "AutoSim run 295835 s008 fitted critical Lake Number (lc)",
-                "shape": None,
-            },
-            "penetrative_convection_coef": {
-                "units": "1", "bounds": (0.0, 1.0e3), "tunable_tier": 2,
-                "transform": "sigmoid", "category": "closure",
-                "reference": "AutoSim run 295835 s012 fitted criterion N^2 z^2 < c w_c^2 of "
-                             "penetrative convection under net surface cooling (c_pen)",
                 "shape": None,
             },
             "wind_memory_exponent": {
