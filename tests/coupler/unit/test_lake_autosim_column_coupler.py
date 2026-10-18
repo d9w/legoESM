@@ -61,6 +61,11 @@ def test_default_lake_state_unchanged():
         np.testing.assert_array_equal(np.asarray(x), np.asarray(y))
 
 
+def test_init_surface_state_rejects_unknown_lake_config():
+    with pytest.raises(ValueError, match="Unknown lake scheme config"):
+        init_surface_state(SHAPE, lake_config=object())
+
+
 def test_coupler_steps_the_column_lake():
     cfg = AutoSimColumnLakeConfig()
     step_fn = make_coupler(CouplerConfig(), LandConfig(), SeaIceConfig(), cfg)

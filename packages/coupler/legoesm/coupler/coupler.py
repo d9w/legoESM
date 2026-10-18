@@ -51,6 +51,7 @@ from legoesm.coupler.lake import (
     LakeConfig,
     LakeState,
     init_autosim_column_lake_state,
+    lake_scheme_of,
     step_lake_tile,
 )
 from legoesm.coupler.tile_fractions import (
@@ -190,7 +191,8 @@ def init_surface_state(
     lake_config : LakeConfig or AutoSimColumnLakeConfig, optional
         Selects the lake state: an ``AutoSimColumnLakeConfig`` builds the
         multi-level ``ColumnLakeState``; ``None`` or a ``LakeConfig`` builds
-        the two-layer ``LakeState`` (byte-identical to the default).
+        the two-layer ``LakeState`` (byte-identical to the default); any other
+        type raises ``ValueError`` (``lake_scheme_of``).
     """
     dims_2d = ("face", "x", "y")
     _sd = get_policy().storage
@@ -253,7 +255,7 @@ def init_surface_state(
     # Pin lake temperatures to the same storage precision as the rest
     # of the coupler state (sea-ice / land use ``_sd`` above) so the
     # lake fields don't inadvertently default to f64 under x64 mode.
-    if isinstance(lake_config, AutoSimColumnLakeConfig):
+    if lake_config is not None and lake_scheme_of(lake_config) == "autosim_column":
         # Multi-level column: levels down to the two-layer epilimnion depth
         # start at T_epi_init, deeper levels at T_hypo_init (the two-layer
         # cold start mapped onto the column levels).
