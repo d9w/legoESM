@@ -119,7 +119,7 @@ __param_spec__ = {
                 "shape": None,
             },
             "hostetler_kstar_coef": {
-                "units": "1", "bounds": (0.05, 10.0), "tunable_tier": 2,
+                "units": "m^-1 (m/s)^1.84", "bounds": (0.05, 10.0), "tunable_tier": 2,
                 "transform": "sigmoid", "category": "closure",
                 "reference": "Hostetler and Bartlein (1990) Ekman decay coefficient (6.6); "
                              "AutoSim run 295835 s002 fitted value", "shape": None,

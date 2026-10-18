@@ -140,8 +140,9 @@ def build_params_bundle(coupled_cfg, coupler_config=None,
 def select_lake_config(bundle, lake_scheme: str):
     """The lake config of ``--lake-scheme`` from an applied params bundle.
 
-    Raises when the params file set parameters of the lake scheme that is
-    NOT selected (they would be silently inert)."""
+    Raises when the params file changed parameters of the lake scheme that is
+    NOT selected from their defaults (they would be silently inert); a value
+    equal to the default is not detected."""
     from legoesm.coupler.lake import VALID_LAKE_SCHEMES
     from legoesm.coupler.lake.config import AutoSimColumnLakeConfig, LakeConfig
 
