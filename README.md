@@ -401,6 +401,7 @@ component plugs into the matrix framework.
 ### Lakes
 
 - **Two-layer lake** with mixing and surface coupling (`coupler/lake/`)
+- **Multi-level hypsographic lake column** (`autosim_column`, opt-in through `AutoSimColumnLakeConfig` or `run_coupled --lake-scheme autosim_column`), fitted to Lough Feeagh temperature profiles (`coupler/lake/autosim_column.py`)
 
 ### Coupler
 

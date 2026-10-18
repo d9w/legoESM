@@ -45,7 +45,14 @@ from legoesm.core.coupling_fields import (
 # fresh water; q_sat at the air-sea interface is correspondingly reduced.
 # Required by OMIP-2 protocol (Griffies 2016 §2.2 → Large & Yeager 2009 §3).
 _Q_SAT_SALINE_FACTOR = constants.q_sat_saline_fraction
-from legoesm.coupler.lake import LakeConfig, LakeState, step_lake
+from legoesm.coupler.lake import (
+    AutoSimColumnLakeConfig,
+    ColumnLakeState,
+    LakeConfig,
+    LakeState,
+    init_autosim_column_lake_state,
+    step_lake_tile,
+)
 from legoesm.coupler.tile_fractions import (
     blend_tiles,
     compute_tile_fractions,
@@ -75,7 +82,7 @@ class SurfaceState(NamedTuple):
     """
     land: LandState
     ice: SeaIceState | DynamicSeaIceState
-    lake: LakeState
+    lake: LakeState | ColumnLakeState
     accumulator: FluxAccumulator
     carbon: CarbonState | None = None
 
@@ -159,6 +166,7 @@ def init_surface_state(
     land_config: LandConfig | None = None,
     carbon_override: CarbonState | None = None,
     ice_config: SeaIceConfig | None = None,
+    lake_config: LakeConfig | AutoSimColumnLakeConfig | None = None,
 ) -> SurfaceState:
     """Initialize all surface tile states.
 
@@ -179,6 +187,10 @@ def init_surface_state(
         to the cold-start dtype (a mismatch raises).  ``None`` (default) -> the
         cold-start is byte-identical.  Only honoured when the carbon cycle is
         active (``differland``); supplying it with carbon off raises.
+    lake_config : LakeConfig or AutoSimColumnLakeConfig, optional
+        Selects the lake state: an ``AutoSimColumnLakeConfig`` builds the
+        multi-level ``ColumnLakeState``; ``None`` or a ``LakeConfig`` builds
+        the two-layer ``LakeState`` (byte-identical to the default).
     """
     dims_2d = ("face", "x", "y")
     _sd = get_policy().storage
@@ -241,17 +253,26 @@ def init_surface_state(
     # Pin lake temperatures to the same storage precision as the rest
     # of the coupler state (sea-ice / land use ``_sd`` above) so the
     # lake fields don't inadvertently default to f64 under x64 mode.
-    lake = LakeState(
-        T_epi=Field(data=jnp.full(shape, T_epi_init, dtype=_sd),
-                    name="T_epi", dims=dims_2d, units="K"),
-        T_hypo=Field(data=jnp.full(shape, T_hypo_init, dtype=_sd),
-                     name="T_hypo", dims=dims_2d, units="K"),
-        # Initialise Q_freeze to zeros so the pytree shape is
-        # invariant across timesteps (two_layer_lake populates this
-        # at every step).  Audit F14.
-        Q_freeze=Field(data=jnp.zeros(shape, dtype=_sd),
-                       name="Q_freeze", dims=dims_2d, units="W/m2"),
-    )
+    if isinstance(lake_config, AutoSimColumnLakeConfig):
+        # Multi-level column: levels down to the two-layer epilimnion depth
+        # start at T_epi_init, deeper levels at T_hypo_init (the two-layer
+        # cold start mapped onto the column levels).
+        _depths = jnp.asarray(lake_config.depths_m, dtype=_sd)
+        _profile = jnp.where(_depths <= LakeConfig().h_epi, T_epi_init, T_hypo_init)
+        lake = init_autosim_column_lake_state(
+            _profile.astype(_sd), shape, lake_config, dims=dims_2d, dtype=_sd)
+    else:
+        lake = LakeState(
+            T_epi=Field(data=jnp.full(shape, T_epi_init, dtype=_sd),
+                        name="T_epi", dims=dims_2d, units="K"),
+            T_hypo=Field(data=jnp.full(shape, T_hypo_init, dtype=_sd),
+                         name="T_hypo", dims=dims_2d, units="K"),
+            # Initialise Q_freeze to zeros so the pytree shape is
+            # invariant across timesteps (two_layer_lake populates this
+            # at every step).  Audit F14.
+            Q_freeze=Field(data=jnp.zeros(shape, dtype=_sd),
+                           name="Q_freeze", dims=dims_2d, units="W/m2"),
+        )
 
     # Pin the accumulator leaves to the SAME storage precision as the rest of
     # SurfaceState (``_sd`` above); without an explicit dtype the zeros follow
@@ -625,7 +646,8 @@ def make_coupler(
         return ice_resp, {"ice": ice_new}
 
     def _step_lake_tile(ctx: _TileContext):
-        lake_new, lake_resp = step_lake(
+        # Scheme selected by the lake config type (LakeConfig -> step_lake).
+        lake_new, lake_resp = step_lake_tile(
             ctx.sfc_state.lake, ctx.atm_forcing, lake_config, U_min, ctx.dt)
         return lake_resp, {"lake": lake_new}
 

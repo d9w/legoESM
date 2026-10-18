@@ -108,7 +108,7 @@ class EarthSystemDriver:
         # Initialize surface state
         shape_2d = self._atm.grid.grid_shape_2d
         self._sfc_state = init_surface_state(
-            shape_2d, land_config=land_cfg,
+            shape_2d, land_config=land_cfg, lake_config=lake_cfg,
         )
 
         # Tile fractions

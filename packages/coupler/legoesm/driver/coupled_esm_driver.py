@@ -1169,7 +1169,7 @@ class CoupledESMDriver:
             logger.info("  Soil warm-start: T_soil init = atm near-surface air T")
         self._sfc_state = init_surface_state(
             shape_2d, land_config=land_cfg, carbon_override=carbon_override,
-            ice_config=ice_cfg, **soil_kwargs,
+            ice_config=ice_cfg, lake_config=lake_cfg, **soil_kwargs,
         )
 
         # Tile fractions

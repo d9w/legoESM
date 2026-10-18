@@ -5,6 +5,26 @@ All notable changes to legoESM. Format roughly follows
 
 ## Unreleased
 
+### Added
+
+- **Multi-level lake column (`autosim_column`), opt-in.** A 13-level
+  hypsographic heat-diffusion column for the lake tile: Chen-Millero
+  freshwater density, Hostetler wind diffusivity with sheltering and a
+  Lake-Number gate, a background diffusivity scaled by a wind-power memory,
+  penetrative convection under surface cooling, and a bed-sediment slab under
+  each level. It is the JAX translation of a numpy program produced by an
+  AutoSim program search against Lough Feeagh (Ireland) daily temperature
+  profiles at 13 depths. On the held-out 2014-2016 windows (60-day forecasts)
+  its RMSE is 0.347 degC against 0.980 degC for the two-layer lake; a free run
+  over 2004-2016 gives 0.639 degC against 1.434 degC. Select it by passing
+  `AutoSimColumnLakeConfig` to `step_lake_tile` and
+  `init_surface_state(lake_config=...)`, or with `run_coupled --lake-scheme
+  autosim_column` (parameters through `--params`,
+  `coupler.lake_autosim_column.*`). The defaults are the Lough Feeagh geometry,
+  latitude and fit. The scheme has no ice, bounds the water at the freezing
+  point, and adds a fitted 43.75 W/m2 heat flux that the atmosphere does not
+  see. The two-layer lake and every driver default are unchanged.
+
 ### Changed
 
 - **License: MIT.** legoESM is now released under the MIT License, replacing

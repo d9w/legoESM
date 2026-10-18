@@ -113,6 +113,7 @@ class _CoupledParamsBundle(NamedTuple):
     coupler: object
     ice: object
     lake: object
+    lake_column: object
 
 
 def build_params_bundle(coupled_cfg, coupler_config=None,
@@ -124,7 +125,7 @@ def build_params_bundle(coupled_cfg, coupler_config=None,
     (tests/unit/test_params_reachability_audit.py) walks THIS bundle, so the
     audited routing surface cannot drift from what main() applies."""
     from legoesm.coupler.config import CouplerConfig
-    from legoesm.coupler.lake.config import LakeConfig
+    from legoesm.coupler.lake.config import AutoSimColumnLakeConfig, LakeConfig
     from legoesm.ice.config import SeaIceConfig
 
     return _CoupledParamsBundle(
@@ -132,7 +133,30 @@ def build_params_bundle(coupled_cfg, coupler_config=None,
         coupler=coupler_config or CouplerConfig(),
         ice=ice_config or SeaIceConfig(),
         lake=LakeConfig(),
+        lake_column=AutoSimColumnLakeConfig(),
     )
+
+
+def select_lake_config(bundle, lake_scheme: str):
+    """The lake config of ``--lake-scheme`` from an applied params bundle.
+
+    Raises when the params file set parameters of the lake scheme that is
+    NOT selected (they would be silently inert)."""
+    from legoesm.coupler.lake import VALID_LAKE_SCHEMES
+    from legoesm.coupler.lake.config import AutoSimColumnLakeConfig, LakeConfig
+
+    if lake_scheme not in VALID_LAKE_SCHEMES:
+        raise ValueError(
+            f"Unknown lake scheme {lake_scheme!r}; expected one of {VALID_LAKE_SCHEMES}.")
+    chosen, other, other_default = (
+        (bundle.lake_column, bundle.lake, LakeConfig())
+        if lake_scheme == "autosim_column"
+        else (bundle.lake, bundle.lake_column, AutoSimColumnLakeConfig()))
+    if other != other_default:
+        raise ValueError(
+            f"--params sets parameters of a lake scheme other than --lake-scheme "
+            f"{lake_scheme!r}; they would have no effect.")
+    return chosen
 
 
 #: SeaIceConfig scheme literals; each dispatch raises on anything else.
@@ -299,7 +323,7 @@ def build_coupler_config(args):
 
 
 def apply_coupled_params(params_path, land_params, atm_config, coupled_cfg,
-                         coupler_config, ice_config=None):
+                         coupler_config, ice_config=None, lake_scheme="two_layer"):
     """Apply the --params calibration layer (issue #691) across EVERY component
     config this driver builds: atmosphere params route to the flattened
     ExperimentConfig scalars (scalar map); land params route into the
@@ -339,7 +363,7 @@ def apply_coupled_params(params_path, land_params, atm_config, coupled_cfg,
         coupled_cfg = bundle.coupled
         coupler_config = bundle.coupler
         ice_config = bundle.ice
-        lake_config = bundle.lake
+        lake_config = select_lake_config(bundle, lake_scheme)
     return atm_config, coupled_cfg, coupler_config, ice_config, lake_config
 
 
@@ -761,6 +785,12 @@ def build_parser():
                              "atmosphere surface layer, the slab ocean heat "
                              "budget, and the coupler ocean tile (air-sea only; "
                              "land/ice/lake keep the default).")
+    parser.add_argument("--lake-scheme", default="two_layer",
+                        choices=["two_layer", "autosim_column"],
+                        help="Lake tile scheme: 'two_layer' (default) = step_lake; "
+                             "'autosim_column' = the AutoSim multi-level column "
+                             "(AutoSimColumnLakeConfig; its parameters are set "
+                             "through --params).")
     parser.add_argument("--surface-stability-scheme", default="dyer1974",
                         choices=["dyer1974", "beljaars_holtslag1991",
                                  "grachev2007_sheba", "gryanik2020"],
@@ -1780,12 +1810,17 @@ def main(argv=None, *, build_only=False):
     # Sea-ice: None unless a flag asked for something, so an untouched run is
     # byte-identical (the driver builds the same default).
     ice_config = build_sea_ice_config(args)
+    lake_scheme = getattr(args, "lake_scheme", "two_layer")
     lake_config = None
+    if lake_scheme == "autosim_column":
+        from legoesm.coupler.lake.config import AutoSimColumnLakeConfig
+        lake_config = AutoSimColumnLakeConfig()
     if getattr(args, "params", None):
         (atm_config, coupled_cfg, coupler_config, ice_config,
-         lake_config) = apply_coupled_params(
+         params_lake_config) = apply_coupled_params(
             args.params, args.land_params, atm_config, coupled_cfg,
-            coupler_config, ice_config)
+            coupler_config, ice_config, lake_scheme=lake_scheme)
+        lake_config = params_lake_config or lake_config
 
     driver = CoupledESMDriver(
         atm_config, coupled_cfg, coupler_config=coupler_config,
