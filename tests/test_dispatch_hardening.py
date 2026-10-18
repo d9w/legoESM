@@ -233,6 +233,8 @@ BASELINE_DISPATCHERS: frozenset[tuple[str, str]] = frozenset(
         ("packages/core/legoesm/timestepping/split_explicit.py", "split_explicit_step"),
         ("packages/coupler/legoesm/coupler/coupler.py", "ocean_tile_response"),
         ("packages/coupler/legoesm/coupler/lake/two_layer_lake.py", "step_lake"),
+        # lake scheme selection by config type (two_layer | autosim_column).
+        ("packages/coupler/legoesm/coupler/lake/dispatch.py", "lake_scheme_of"),
         # auto_dt_rce grid_type guard (hardened 2026-06-25; previously only
         # 'voronoi' was special-cased and mpas/icosahedral fell through to the
         # cubed_sphere ladder returning an unsafe dt, and an unknown grid_type
