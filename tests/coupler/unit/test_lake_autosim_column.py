@@ -333,6 +333,33 @@ class TestS016Terms:
         assert np.all(np.asarray(state.wind_power_memory.data) == CONFIG.wind_power_ref_W_m2)
 
 
+class TestFloatingInputs:
+    """The initial-state helpers reject non-floating inputs and keep floating dtypes."""
+
+    def test_state_init_rejects_integer_and_bool(self):
+        with pytest.raises(TypeError, match="floating dtype"):
+            init_autosim_column_lake_state(280, SHAPE, CONFIG, dims=("ncol",))
+        with pytest.raises(TypeError, match="floating dtype"):
+            init_autosim_column_lake_state(280.0, SHAPE, CONFIG, dims=("ncol",),
+                                           wind_power_memory=jnp.asarray(True))
+        state = init_autosim_column_lake_state(jnp.float32(280.0), SHAPE, CONFIG, dims=("ncol",))
+        assert state.T_lake.data.dtype == jnp.float32
+        assert state.wind_power_memory.data.dtype == jnp.float32
+
+    def test_sediment_offset_rejects_integer_day(self):
+        with pytest.raises(TypeError, match="floating dtype"):
+            column_sediment_offset_C(180, CONFIG)
+        got = jax.jit(lambda d: column_sediment_offset_C(d, CONFIG))(jnp.float32(180.0))
+        assert got.dtype == jnp.float32 and got.shape == (N_LEV,)
+
+    def test_wind_memory_init_rejects_integer_day(self):
+        with pytest.raises(TypeError, match="floating dtype"):
+            column_wind_memory_init(jnp.asarray(180), CONFIG)
+        got = jax.jit(lambda d: column_wind_memory_init(d, CONFIG))(jnp.float32(180.0))
+        assert got.dtype == jnp.float32
+        np.testing.assert_allclose(float(got), 0.2257001, rtol=1e-6)
+
+
 class TestDispatch:
     def test_scheme_names(self):
         assert VALID_LAKE_SCHEMES == ("two_layer", "autosim_column")

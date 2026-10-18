@@ -148,6 +148,13 @@ _STRESS_FLOOR_PA = 1e-9             # floor of the stress in the Lake Number
 _CENTRE_DEPTH_RATIO_FLOOR = 1e-3    # floor of 1 - z_g / H in the Lake Number
 
 
+def _require_floating(name: str, value) -> None:
+    """Raise ``TypeError`` unless ``value`` has a floating dtype (static check, jit-safe)."""
+    dtype = jnp.asarray(value).dtype
+    if not jnp.issubdtype(dtype, jnp.floating):
+        raise TypeError(f"{name} must have a floating dtype, got {dtype}")
+
+
 def column_geometry(config: AutoSimColumnLakeConfig, dtype=None) -> dict:
     """Control volumes of the hypsographic column, per unit lake surface area.
 
@@ -419,8 +426,10 @@ def column_sediment_offset_C(day_of_year, config: AutoSimColumnLakeConfig, dtype
     harmonic climatology ``T = mean + sum_k a_k cos(k w) + b_k sin(k w)``:
     ``S - T = sum_k [-(a_k x_k^2 + b_k x_k) cos(k w) + (a_k x_k - b_k x_k^2)
     sin(k w)] / (1 + x_k^2)`` with ``x_k = k omega tau_sed``.  Zero when the
-    sediment exchange is off or the climatology is empty.
+    sediment exchange is off or the climatology is empty.  ``day_of_year`` must
+    have a floating dtype (``TypeError`` otherwise).
     """
+    _require_floating("day_of_year", day_of_year)
     doy = jnp.asarray(day_of_year, dtype=dtype)
     n_levels = len(config.depths_m)
     coef = jnp.asarray(config.temperature_climatology_C, dtype=doy.dtype)
@@ -441,8 +450,10 @@ def column_wind_memory_init(day_of_year, config: AutoSimColumnLakeConfig, dtype=
     """Initial wind-power memory [W/m2]: the training climatology at ``day_of_year``.
 
     Falls back to ``wind_power_ref_W_m2`` where the climatology is empty,
-    non-finite or not positive.
+    non-finite or not positive.  ``day_of_year`` must have a floating dtype
+    (``TypeError`` otherwise).
     """
+    _require_floating("day_of_year", day_of_year)
     doy = jnp.asarray(day_of_year, dtype=dtype)
     coef = jnp.asarray(config.wind_power_climatology_W_m2, dtype=doy.dtype)
     fallback = jnp.full(doy.shape, config.wind_power_ref_W_m2, doy.dtype)
@@ -535,8 +546,14 @@ def init_autosim_column_lake_state(
     ``wind_power_ref_W_m2`` (memory factor 1).  For a start on a known day,
     :func:`column_sediment_offset_C` and :func:`column_wind_memory_init` give
     the climatological values.  ``dims`` names the spatial axes (default the
-    coupler's ``("face", "x", "y")`` for 3-d shapes).
+    coupler's ``("face", "x", "y")`` for 3-d shapes).  Every given input must
+    have a floating dtype (``TypeError`` otherwise); it is kept, not promoted.
     """
+    _require_floating("T_init_K", T_init_K)
+    if T_sediment_K is not None:
+        _require_floating("T_sediment_K", T_sediment_K)
+    if wind_power_memory is not None:
+        _require_floating("wind_power_memory", wind_power_memory)
     n_levels = len(config.depths_m)
     full = tuple(shape) + (n_levels,)
     data = jnp.broadcast_to(jnp.asarray(T_init_K, dtype=dtype), full)
