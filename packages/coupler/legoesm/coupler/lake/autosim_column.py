@@ -127,6 +127,10 @@ _HOSTETLER_RI_DAMPING = 37.0        # K_wind / (1 + 37 Ri^2)
 _FANG_STEFAN_COEF = 1.04e-8
 _FANG_STEFAN_EXPONENT = -0.43
 
+# --- weak-stratification floor: the program's make_params clips it to
+# [_WEAK_N2_FLOOR_MIN_S2, max(threshold, _WEAK_N2_FLOOR_MIN_S2)] (AutoSim s014) ---
+_WEAK_N2_FLOOR_MIN_S2 = 1e-9
+
 # --- wind-power memory factor M = clip(E / P_ref, min, max)^gamma (AutoSim s016) ---
 _WIND_MEMORY_RATIO_MIN = 0.1
 _WIND_MEMORY_RATIO_MAX = 10.0
@@ -255,7 +259,8 @@ def column_background_diffusivity(n2p, config: AutoSimColumnLakeConfig, memory_f
     ``K_s = s_E a N_f^(2b) (max(N^2, N_f^2) / N_f^2)^-q`` (Fang and Stefan ``a``,
     ``b`` at the floor ``N_f^2``) times ``M`` where ``N^2 >= N_t^2``; below the
     threshold the larger of ``M K_s`` and ``K_s(N_t^2) (max(N^2, N_l^2) /
-    N_t^2)^-q_l``.  A zero threshold switches the weak branch off.
+    N_t^2)^-q_l``, with ``N_l^2`` clipped to ``[1e-9, max(N_t^2, 1e-9)]`` as the
+    program does.  A zero threshold switches the weak branch off.
     """
     floor = config.n2_floor_s2
     q_bg = config.background_n2_exponent
@@ -267,7 +272,9 @@ def column_background_diffusivity(n2p, config: AutoSimColumnLakeConfig, memory_f
     on = n_t > 0.0
     n_t_safe = jnp.where(on, n_t, 1.0)
     k_t = k_floor * (jnp.maximum(n_t, floor) / floor) ** (-q_bg)
-    k_low = k_t * (jnp.maximum(n2p, config.weak_stratification_n2_floor_s2) / n_t_safe) ** (
+    floor_low = jnp.clip(config.weak_stratification_n2_floor_s2, _WEAK_N2_FLOOR_MIN_S2,
+                         jnp.maximum(n_t, _WEAK_N2_FLOOR_MIN_S2))
+    k_low = k_t * (jnp.maximum(n2p, floor_low) / n_t_safe) ** (
         -config.weak_stratification_n2_exponent)
     weak = jnp.where(n2p >= n_t, k_m, jnp.maximum(k_low, k_m))
     return jnp.where(on, weak, k_m)

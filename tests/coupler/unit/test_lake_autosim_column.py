@@ -28,6 +28,7 @@ from legoesm.coupler.lake import (
     step_lake_tile,
 )
 from legoesm.coupler.lake.autosim_column import (
+    column_background_diffusivity,
     column_geometry,
     column_lake_step_C,
     column_sediment_offset_C,
@@ -331,6 +332,29 @@ class TestS016Terms:
         np.testing.assert_array_equal(np.asarray(state.T_sediment.data),
                                       np.asarray(state.T_lake.data))
         assert np.all(np.asarray(state.wind_power_memory.data) == CONFIG.wind_power_ref_W_m2)
+
+
+class TestWeakFloorClip:
+    """The program clips the weak-branch floor to [1e-9, max(threshold, 1e-9)] (make_params)."""
+
+    N2P = jnp.asarray([0.0, 5e-5, 2e-4])
+
+    def _k(self, floor):
+        cfg = CONFIG._replace(weak_stratification_n2_s2=1e-4,
+                              weak_stratification_n2_floor_s2=floor)
+        return np.asarray(column_background_diffusivity(self.N2P, cfg, jnp.asarray(0.5)))
+
+    def test_floor_above_threshold_matches_the_program(self):
+        # numpy program, make_params(fitted={..., n2_low=1e-4, n2_low_floor=1e-3}), mem = 0.5
+        want = [1.5215495407853994e-05, 1.5215495407853994e-05, 6.39732777238689e-06]
+        np.testing.assert_allclose(self._k(1e-3), want, rtol=1e-12)
+        np.testing.assert_array_equal(self._k(1e-3), self._k(1e-4))
+
+    def test_zero_floor_gives_a_finite_diffusivity(self):
+        k = self._k(0.0)
+        assert np.all(np.isfinite(k))
+        # numpy program: the floor clips to 1e-9
+        np.testing.assert_allclose(k[0], 0.08556301851080285, rtol=1e-12)
 
 
 class TestFloatingInputs:
