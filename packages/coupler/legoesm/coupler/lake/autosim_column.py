@@ -54,7 +54,9 @@ fluxes per unit lake surface area:
 3. Backward-Euler diffusion between the volumes (tridiagonal; conserves
    ``sum_i V_i T_i``).
 4. ``T >= T_freeze``: the program defines no ice; this bound is the only
-   cold-side treatment and is not energy conserving.
+   cold-side treatment and is not energy conserving.  It applies before step 5,
+   so exchange with colder sediment can leave water slightly below ``T_freeze``
+   (as in the program).
 5. Sediment exchange, exact in time: each level and its slab (capacity
    ``h tau_sed bed_i``, conductance ``h bed_i``) relax toward their common
    mean temperature; ``rho_w c_w V_i T_i + h tau_sed bed_i S_i`` is conserved.
@@ -402,7 +404,7 @@ def column_lake_step_C(state_C, forcing: AtmToSurface, config: AutoSimColumnLake
     g_dn = jnp.concatenate([g, zero], axis=-1)
     T2 = thomas_solve(-g_up / vol, 1.0 + (g_up + g_dn) / vol, -g_dn / vol, T1)
 
-    # 4. No ice in this scheme: water is bounded below by the freezing point.
+    # 4. No ice in this scheme: water is bounded below by the freezing point (before step 5).
     T_w = jnp.maximum(T2, 0.0)
 
     # 5. Bed-sediment heat exchange (pairwise, exact in time, energy conserving).

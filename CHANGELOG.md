@@ -22,7 +22,7 @@ All notable changes to legoESM. Format roughly follows
   autosim_column` (parameters through `--params`,
   `coupler.lake_autosim_column.*`). The defaults are the Lough Feeagh geometry,
   latitude and fit. The scheme has no ice, bounds the water at the freezing
-  point, and adds a fitted 43.75 W/m2 heat flux that the atmosphere does not
+  point before the sediment exchange, and adds a fitted 43.75 W/m2 heat flux that the atmosphere does not
   see. The two-layer lake and every driver default are unchanged.
 
 ### Changed

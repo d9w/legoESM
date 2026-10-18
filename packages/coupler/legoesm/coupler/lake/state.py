@@ -24,7 +24,8 @@ class ColumnLakeState(NamedTuple):
     shape of the tile followed by the lake levels, level 0 at the surface.
     ``T_sediment`` is the bed-sediment slab under each level (the bed area a
     level touches).  ``wind_power_memory`` has the spatial shape.  The scheme
-    defines no ice; water temperature is bounded below by ``T_freeze``.
+    defines no ice; water temperature is bounded below by ``T_freeze`` before
+    the sediment exchange, which can take it slightly below.
     """
     T_lake: Field        # Lake water temperature at the level centres [K]
     T_sediment: Field    # Bed-sediment slab temperature under each level [K]
