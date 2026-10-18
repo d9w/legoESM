@@ -18,6 +18,7 @@ before creating/jitting the production step.
 from __future__ import annotations
 
 import ctypes
+import ctypes.util
 from functools import partial
 
 import jax
@@ -26,7 +27,13 @@ import numpy as np
 from legoesm.core.precision import get_policy
 
 _LIBM_SONAME = "libm.so.6"
-_LIBM = ctypes.CDLL(_LIBM_SONAME)
+try:
+    _LIBM = ctypes.CDLL(_LIBM_SONAME)
+except OSError:
+    # Hosts without the glibc soname (macOS): load the platform libm so that
+    # importing this module works. The ``libm`` policy arm then calls that
+    # library, which is not the certification oracle; ``native`` is unaffected.
+    _LIBM = ctypes.CDLL(ctypes.util.find_library("m"))
 
 
 def _scalar_libm(name: str, values: np.ndarray) -> np.ndarray:
